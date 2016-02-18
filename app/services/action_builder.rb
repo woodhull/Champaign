@@ -1,6 +1,9 @@
 module ActionBuilder
 
   def build_action
+    increment_counters
+
+    #puts @params[:email]
     Action.create(
       member: member,
       page: page,
@@ -52,6 +55,10 @@ module ActionBuilder
 
   def actionkit_user_id(akid)
     AkidParser.parse(akid)[:actionkit_user_id]
+  end
+
+  def increment_counters
+    Analytics::Page.increment(page.id, new_member: !existing_member?)
   end
 end
 

@@ -855,7 +855,6 @@ describe "Braintree API" do
                     country: "US",
                     postal: "11225",
                     address1: '25 Elm Drive',
-                    source: 'fb',
                     first_name: 'Bernie',
                     last_name: 'Sanders'
                   },

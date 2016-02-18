@@ -37,8 +37,7 @@ describe ManageAction do
         }
       }
 
-      expect(ChampaignQueue).to receive(:push).with(expected)
-
+      expect(ChampaignQueue).to receive(:push).with( expected )
       subject
     end
 
@@ -75,7 +74,6 @@ describe ManageAction do
     end
 
     describe 'existing member' do
-
       before :each do
         @existing = create :member, email: data[:email]
       end

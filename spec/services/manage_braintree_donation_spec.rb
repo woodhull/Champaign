@@ -1,4 +1,181 @@
 require 'rails_helper'
+describe ManageBraintreeDonation do
+
+  let(:braintree_arguments) do
+    {
+      amount: "100.00",
+      merchant_account_id: 'GBP',
+      payment_method_nonce: payment_nonce,
+      options: {
+        store_in_vault: true,
+        submit_for_settlement: true
+      }
+    }
+  end
+
+  let(:transaction) do
+    VCR.use_cassette('manage braintree donation transaction') do
+      Braintree::Transaction.sale( braintree_arguments )
+    end
+  end
+
+  let(:paypal_transaction) do
+    VCR.use_cassette('manage braintree donation paypal transaction') do
+      Braintree::Transaction.sale( braintree_arguments )
+    end
+  end
+
+  let(:subscription) do
+    VCR.use_cassette('manage braintree donation subscription') do
+      Braintree::Subscription.create(
+        price: '1.00',
+        payment_method_token:  transaction.transaction.credit_card_details.token,
+        merchant_account_id: 'EUR',
+        plan_id: 'EUR'
+      )
+    end
+  end
+
+  let(:queue_arguments) do
+    {
+      type: 'donation',
+      params: {
+        donationpage: {
+          name: "foo-bar-donation",
+          payment_account: payment_account
+        },
+        order: {
+         amount: "100.0",
+         card_num: "1881",
+         card_code: "007",
+         exp_date_month: "12",
+         exp_date_year: "2020",
+         currency: "GBP"
+        },
+        action: {
+          source: nil
+        },
+        user: {
+         country: "Bolivia",
+         email: "foo@example.com",
+         card_num: "1881",
+         is_subscription: false,
+         amount: '100.0',
+         currency: "GBP",
+         transaction_id:  /[a-z0-9]*$/,
+         first_name: "Bob",
+         last_name: "Murphy"
+        }
+      }
+    }
+  end
+
+
+  let(:page) { create(:page, slug: 'foo-bar') }
+
+  let(:params) do
+    { page_id: page.id, country: 'Bolivia', email: 'foo@example.com', name: 'Bob Murphy' }
+  end
+
+  subject {
+    ManageBraintreeDonation.create({
+      params: params,
+      braintree_result: transaction,
+      is_subscription: false
+    })
+  }
+
+  before do
+    allow( Analytics::Page ).to receive(:increment)
+    allow( ChampaignQueue ) .to receive(:push)
+  end
+
+  describe 'With PayPal Transaction' do
+    let(:payment_nonce)   { 'fake-paypal-future-nonce' }
+    let(:payment_account) { 'dd' }
+    subject {
+      ManageBraintreeDonation.create({
+        params: params,
+        braintree_result: paypal_transaction,
+        is_subscription: false
+      })
+    }
+
+    it 'is' do
+      expect(ChampaignQueue).to receive(:push).with( hash_including(queue_arguments) )
+      subject
+    end
+  end
+
+  describe 'Subscription' do
+    subject {
+      ManageBraintreeDonation.create({
+        params: params,
+        braintree_result: subscription,
+        is_subscription: false
+      })
+    }
+
+    it 'creates' do
+      expect(ChampaignQueue).to receive(:push).with({})
+      subject
+    end
+  end
+
+  describe 'action' do
+    it 'is created' do
+      expected_arguments = {
+        page:       page,
+        form_data:  params
+      }
+
+      expect(Action).to receive(:create).with( hash_including(expected_arguments) )
+      subject
+    end
+  end
+
+  describe 'cache counters' do
+    context 'with new member' do
+      it 'increments with new_member as true' do
+        expect(Analytics::Page).to receive(:increment).with(page.id, new_member: true)
+        subject
+      end
+    end
+
+    context 'with existing member' do
+      let!(:member) { create(:member, email: 'foo@example.com') }
+
+      it 'increments with new_member as false' do
+        expect(Analytics::Page).to receive(:increment).with(page.id, new_member: false)
+        subject
+      end
+    end
+  end
+
+  describe 'ChampaignQueue' do
+    it 'is "pushed" to' do
+      expect(ChampaignQueue).to receive(:push).with(expected)
+      subject
+    end
+  end
+end
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 describe ManageBraintreeDonation do
   # Hey, let's define a new class that makes testing this possible
@@ -69,12 +246,8 @@ describe ManageBraintreeDonation do
 
 
   }
-  let(:result) {
-    # We don't really care if we don't have a Braintree Result object, just something which conforms to its interface.
-    # We're not testing the internals of the BT library here.
-    # So, instantiate a class which allows for data retrieval in the same style as the BT class we get back, and call it good.
-    DeepStruct.new(transaction_attributes)
-  }
+
+  let(:result) { DeepStruct.new(transaction_attributes) }
   let(:webhook_attributes) {
     {
         subscription: {
@@ -99,16 +272,18 @@ describe ManageBraintreeDonation do
             card_code: '007',
             exp_date_month: '01',
             exp_date_year: '2016',
-            currency: 'GBP'
+            currency: 'GBP',
+            is_subscription: false,
+            transaction_id: 'test'
+        },
+        action: {
+            source: nil
         },
         user: {
             email: user.email,
             first_name: user.first_name,
             last_name: user.last_name,
             country: 'US'
-        },
-        action: {
-            source: nil
         }
     }
   }
@@ -122,6 +297,24 @@ describe ManageBraintreeDonation do
 
   before do
     allow(ChampaignQueue).to receive(:push)
+  end
+
+  describe 'with new member' do
+    let(:data) { {email: 'new_member@example.com', page_id: page.id, name: 'Bob' }   }
+
+    before do
+      transaction_attributes[:cutomer_details][:email] = 'new_member@example.com'
+    end
+
+    it 'increments redis counter as new member' do
+      expect(Analytics::Page).to receive(:increment).with(page.id, new_member: true)
+      ManageBraintreeDonation.create(params: data, braintree_result: result)
+    end
+  end
+
+  it 'increments redis counter as existing member' do
+    expect(Analytics::Page).to receive(:increment).with(page.id, new_member: false)
+    ManageBraintreeDonation.create(params: data, braintree_result: result)
   end
 
   describe 'source' do

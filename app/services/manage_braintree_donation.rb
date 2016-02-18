@@ -13,24 +13,27 @@ class ManageBraintreeDonation
   end
 
   def create
-    ChampaignQueue.push(queue_message)
 
     # We need a way to cross-reference this action at a later date to find out what page
     # with which we will associate ongoing donations, in the event this is a subscription.
-    @params[:card_num] = card_num
-    @params[:is_subscription] = @is_subscription
-    @params[:amount] = transaction.amount
-    @params[:currency] = transaction.currency_iso_code
-    @params[:transaction_id] = transaction.id
-    @params[:subscription_id] = subscription_id if subscription_id.present?
-    build_action
+    #@params[:card_num] = card_num
+    #@params[:is_subscription] = @is_subscription
+    #@params[:amount] = transaction.amount.to_s
+    #@params[:currency] = transaction.currency_iso_code
+    #@params[:transaction_id] = transaction.id
+    #@params[:subscription_id] = subscription_id if subscription_id.present?
+    #pp @params
+    pp user_params
+    action = build_action
+    ChampaignQueue.push(queue_message)
+    action
   end
 
   private
 
   def queue_message
     {
-      type: 'donation',
+      type:   'donation',
       params: organize_params
     }
   end
@@ -50,20 +53,20 @@ class ManageBraintreeDonation
         currency:       transaction.currency_iso_code
       },
       action: {
-        source:         @params[:source] # falls back to nil
+        source:  @params[:source] # falls back to nil
       },
       user: user_params
     }
   end
 
   def user_params
-    form_data = @params.select{ |k, v| !k.to_s.match(/(page_id|form_id|name|full_name)/) }
-    form_data.symbolize_keys.merge(
-      first_name: member.first_name,
-      last_name:  member.last_name,
-      email:    member.email,
-      country:  member.country
-    )
+    @params.reject{ |k, v| k.to_s =~ /(page_id|form_id|name|full_name|source)/ }.
+      symbolize_keys.merge(
+        first_name: member.first_name,
+        last_name:  member.last_name,
+        email:      member.email,
+        country:    member.country
+      )
   end
 
   # ActionKit can accept one of the following:
@@ -86,7 +89,7 @@ class ManageBraintreeDonation
   end
 
   def transaction
-    @transaction ||= 
+    @transaction ||=
       if @braintree_result.transaction.present?
         @braintree_result.transaction
       elsif @braintree_result.subscription.transactions.present?
