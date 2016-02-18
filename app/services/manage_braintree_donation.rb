@@ -16,17 +16,14 @@ class ManageBraintreeDonation
 
     # We need a way to cross-reference this action at a later date to find out what page
     # with which we will associate ongoing donations, in the event this is a subscription.
-    #@params[:card_num] = card_num
-    #@params[:is_subscription] = @is_subscription
-    #@params[:amount] = transaction.amount.to_s
-    #@params[:currency] = transaction.currency_iso_code
-    #@params[:transaction_id] = transaction.id
-    #@params[:subscription_id] = subscription_id if subscription_id.present?
-    #pp @params
-    pp user_params
-    action = build_action
-    ChampaignQueue.push(queue_message)
-    action
+    @params[:card_num] = card_num
+    @params[:is_subscription] = @is_subscription
+    @params[:amount] = transaction.amount.to_s
+    @params[:currency] = transaction.currency_iso_code
+    @params[:transaction_id] = transaction.id
+    @params[:subscription_id] = subscription_id if subscription_id.present?
+
+    build_action(donation: true)
   end
 
   private

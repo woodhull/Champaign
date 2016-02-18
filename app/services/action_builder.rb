@@ -1,14 +1,14 @@
 module ActionBuilder
 
-  def build_action
-    increment_counters
+  def build_action(extra_attrs = {})
+    subscribed_member = !existing_member?
 
-    #puts @params[:email]
-    Action.create(
+    Action.create({
       member: member,
       page: page,
-      form_data: @params
-    )
+      form_data: @params,
+      subscribed_member: subscribed_member
+    }.merge(extra_attrs))
   end
 
   def previous_action
