@@ -81,14 +81,4 @@ describe ActionFactory do
       expect(Member.count).to eq(1)
     end
   end
-
-  describe 'without page' do
-    let(:page) { double(id: 'xyz') }
-
-    it 'raises 404' do
-      expect{
-        subject.run
-      }.to raise_error(ActiveRecord::RecordNotFound)
-    end
-  end
 end
