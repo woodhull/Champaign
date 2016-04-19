@@ -7,21 +7,20 @@ module PaymentProcessor
           amount: amount,
           currency: currency,
           links: {
-              mandate: mandate.id
+            mandate: mandate.id
           },
           metadata: {
-              customer_id: complete_redirect_flow.links.customer
+            customer_id: complete_redirect_flow.links.customer
           }
         }
       end
 
       def subscription_params
-        transaction_params.merge(
-          {
-            name: "donation",
-            interval_unit: "monthly",
-            day_of_month:  "1",
-          })
+        transaction_params.merge({
+          name: "donation",
+          interval_unit: "monthly",
+          day_of_month:  "1",
+        })
       end
 
       def mandate
@@ -52,7 +51,7 @@ module PaymentProcessor
       def client
         GoCardlessPro::Client.new(
           access_token: Settings.gocardless.token,
-          environment: Settings.gocardless.environment.to_sym
+          environment:  Settings.gocardless.environment.to_sym
         )
       end
 

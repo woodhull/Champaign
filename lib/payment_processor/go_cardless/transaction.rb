@@ -34,8 +34,6 @@ module PaymentProcessor
         transaction = client.payments.create(params: transaction_params)
         Payment::GoCardless.write_transaction(@mandate, transaction, @page_id, @existing_member, true)
       end
-
     end
   end
 end
-

@@ -3,6 +3,7 @@ require_relative 'action_queue'
 module ActionBuilder
   def build_action(extra_attrs = {})
     subscribed_member = !existing_member?
+
     action = Action.create({
       member: member,
       page: page,
@@ -18,10 +19,6 @@ module ActionBuilder
     action
   end
 
-  def previous_action
-    return nil unless existing_member?
-    @previous_action ||= Action.where(member: member, page_id: page).first
-  end
 
   def existing_member
     @existing_member ||= Member.find_by( email: @params[:email] )

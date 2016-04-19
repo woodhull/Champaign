@@ -1,7 +1,6 @@
 require 'rails_helper'
 
 describe "GoCardless API" do
-
   describe "triggering a redirect flow" do
 
     subject do
